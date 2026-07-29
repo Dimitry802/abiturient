@@ -21,44 +21,37 @@ page = st.sidebar.radio("Перейти к разделу:", [
 # 1. РАЗДЕЛ: КАЛЬКУЛЯТОР
 if page == "🎯 Калькулятор & Подбор Вуза":
     st.title("🎓 Ассистент Абитуриента 2026")
-    st.caption("Подбор программ на основе баллов ЕГЭ и дополнительных опций")
+    st.caption("Подбор программ на основе ваших предметов и баллов ЕГЭ")
 
     with st.sidebar:
         st.divider()
         st.header("📊 Ваши предметы и баллы ЕГЭ")
 
-        # Обязательные предметы
-        rus = st.number_input("Русский язык", 0, 100, 80)
-        math = st.number_input("Математика (профиль)", 0, 100, 75)
+        # Список всех возможных предметов
+        all_subjects_list = [
+            "Русский язык", "Математика", "Информатика", "Физика",
+            "Обществознание", "Химия", "Биология", "История",
+            "Иностранный язык", "Литература", "География"
+        ]
 
-        user_subjects = {"Русский язык": rus, "Математика": math}
+        selected_subjects = st.multiselect(
+            "Выберите сданные предметы ЕГЭ:",
+            options=all_subjects_list,
+            default=["Русский язык", "Математика", "Информатика"]
+        )
 
-        # Дополнительные предметы на выбор
-        st.subheader("Выберите доп. предметы:")
-        if st.checkbox("Информатика", value=True):
-            user_subjects["Информатика"] = st.number_input("Балл по Информатике", 0, 100, 85)
-        if st.checkbox("Физика"):
-            user_subjects["Физика"] = st.number_input("Балл по Физике", 0, 100, 60)
-        if st.checkbox("Обществознание"):
-            user_subjects["Обществознание"] = st.number_input("Балл по Обществознанию", 0, 100, 70)
-        if st.checkbox("Химия"):
-            user_subjects["Химия"] = st.number_input("Балл по Химии", 0, 100, 70)
-        if st.checkbox("Биология"):
-            user_subjects["Биология"] = st.number_input("Балл по Биологии", 0, 100, 70)
-        if st.checkbox("История"):
-            user_subjects["История"] = st.number_input("Балл по Истории", 0, 100, 70)
-        if st.checkbox("Иностранный язык"):
-            user_subjects["Иностранный язык"] = st.number_input("Балл по Иностр. языку", 0, 100, 70)
-        if st.checkbox("Литература"):
-            user_subjects["Литература"] = st.number_input("Балл по Литературе", 0, 100, 70)
-        if st.checkbox("География"):
-            user_subjects["География"] = st.number_input("Балл по Географии", 0, 100, 70)
+        user_subjects = {}
+        if selected_subjects:
+            st.subheader("Введите баллы по предметам:")
+            for subj in selected_subjects:
+                user_subjects[subj] = st.number_input(f"{subj}", 0, 100, 75, key=f"score_{subj}")
 
         achievements = st.number_input("Индивидуальные достижения (ИД)", 0, 10, 3)
 
         st.divider()
         st.header("⚙️ Фильтры")
-        only_suitable = st.checkbox("Показывать только подходящие по предметам", value=False)
+        # По умолчанию скрываем подходящие частично
+        only_suitable = st.checkbox("Показывать ТОЛЬКО с полным совпадением предметов", value=True)
         only_dorm = st.checkbox("Только с общежитием", False)
         only_military = st.checkbox("Наличие Военного центра (ВУЦ)", False)
         only_double = st.checkbox("Программы двойного диплома 🌐", False)
@@ -74,11 +67,11 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     if only_double:
         filtered_df = filtered_df[filtered_df['double_degree'] == True]
 
-    # Корректная фильтрация цены
+    # Корректная фильтрация стоимости
     filtered_df = filtered_df[
         (filtered_df['price'] <= max_price) | (filtered_df['price'] == 0) | (filtered_df['price'].isna())]
 
-    # Считаем совпадение по предметам
+    # Проверка совпадения по предметам
     results = []
     for idx, row in filtered_df.iterrows():
         req_subjects = row['subjects']
@@ -89,6 +82,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         user_score = 0
         has_all_subjects = True
 
+        # Проверяем, есть ли ВСЕ требуемые предметы у пользователя
         for subj in req_subjects:
             if subj in user_subjects:
                 user_score += user_subjects[subj]
@@ -97,10 +91,15 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
         user_score += achievements
 
-        if not only_suitable or has_all_subjects:
+        # Строго добавляем только если предметы совпадают на 100% (или если снят флаг filtering)
+        if has_all_subjects or not only_suitable:
             results.append((row, user_score, has_all_subjects))
 
-    st.subheader(f"🔍 Найдено направлений: {len(results)}")
+    st.subheader(f"🔍 Найдено подпадающих направлений: {len(results)}")
+
+    if not results:
+        st.warning(
+            "⚠️ По выбранным предметам не найдено ни одного направления. Попробуйте выбрать дополнительные предметы ЕГЭ в боковой панели!")
 
     for row, user_score, has_all_subjects in results:
         pass_score = float(row['pass_score']) if pd.notnull(row['pass_score']) else 0.0
