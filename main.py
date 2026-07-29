@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from database import get_universities_data
 from articles import render_articles_page
 from ai_bot import render_ai_bot_page
@@ -33,7 +34,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         user_subjects = {"Русский язык": rus, "Математика": math}
 
         # Дополнительные предметы на выбор
-        st.subheader("Выберите доп. предметы, которые сдавали:")
+        st.subheader("Выберите доп. предметы:")
         if st.checkbox("Информатика", value=True):
             user_subjects["Информатика"] = st.number_input("Балл по Информатике", 0, 100, 85)
         if st.checkbox("Физика"):
@@ -57,7 +58,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
         st.divider()
         st.header("⚙️ Фильтры")
-        only_suitable = st.checkbox("Показывать только подходищие по предметам", value=False)
+        only_suitable = st.checkbox("Показывать только подходящие по предметам", value=False)
         only_dorm = st.checkbox("Только с общежитием", False)
         only_military = st.checkbox("Наличие Военного центра (ВУЦ)", False)
         only_double = st.checkbox("Программы двойного диплома 🌐", False)
@@ -73,7 +74,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     if only_double:
         filtered_df = filtered_df[filtered_df['double_degree'] == True]
 
-    # Корректная фильтрация цены (с учетом нулей и пустых значений)
+    # Корректная фильтрация цены
     filtered_df = filtered_df[
         (filtered_df['price'] <= max_price) | (filtered_df['price'] == 0) | (filtered_df['price'].isna())]
 
@@ -82,7 +83,6 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     for idx, row in filtered_df.iterrows():
         req_subjects = row['subjects']
 
-        # Если предметы хранятся строкой
         if isinstance(req_subjects, str):
             req_subjects = [s.strip() for s in req_subjects.split(',')]
 
@@ -97,7 +97,6 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
         user_score += achievements
 
-        # Добавляем в список
         if not only_suitable or has_all_subjects:
             results.append((row, user_score, has_all_subjects))
 
