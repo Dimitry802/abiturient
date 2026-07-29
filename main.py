@@ -24,11 +24,35 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
     with st.sidebar:
         st.divider()
-        st.header("📊 Ваши баллы ЕГЭ")
-        math = st.number_input("Математика (профиль)", 0, 100, 75)
+        st.header("📊 Ваши предметы и баллы ЕГЭ")
+
+        # Список всех возможных предметов из базы
         rus = st.number_input("Русский язык", 0, 100, 80)
-        it = st.number_input("Информатика", 0, 100, 85)
-        phys = st.number_input("Физика", 0, 100, 60)
+        math = st.number_input("Математика (профиль)", 0, 100, 75)
+
+        # Дополнительные предметы на выбор
+        st.subheader("Выберите доп. предметы:")
+        user_subjects = {"Русский язык": rus, "Математика": math}
+
+        if st.checkbox("Информатика"):
+            user_subjects["Информатика"] = st.number_input("Балл по Информатике", 0, 100, 85)
+        if st.checkbox("Физика"):
+            user_subjects["Физика"] = st.number_input("Балл по Физике", 0, 100, 60)
+        if st.checkbox("Обществознание"):
+            user_subjects["Обществознание"] = st.number_input("Балл по Обществознанию", 0, 100, 70)
+        if st.checkbox("Химия"):
+            user_subjects["Химия"] = st.number_input("Балл по Химии", 0, 100, 70)
+        if st.checkbox("Биология"):
+            user_subjects["Биология"] = st.number_input("Балл по Биологии", 0, 100, 70)
+        if st.checkbox("История"):
+            user_subjects["История"] = st.number_input("Балл по Истории", 0, 100, 70)
+        if st.checkbox("Иностранный язык"):
+            user_subjects["Иностранный язык"] = st.number_input("Балл по Иностр. языку", 0, 100, 70)
+        if st.checkbox("Литература"):
+            user_subjects["Литература"] = st.number_input("Балл по Литературе", 0, 100, 70)
+        if st.checkbox("География"):
+            user_subjects["География"] = st.number_input("Балл по Географии", 0, 100, 70)
+
         achievements = st.number_input("Индивидуальные достижения (ИД)", 0, 10, 3)
 
         st.divider()
@@ -36,47 +60,70 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         only_dorm = st.checkbox("Только с общежитием", False)
         only_military = st.checkbox("Наличие Военного центра (ВУЦ)", False)
         only_double = st.checkbox("Программы двойного диплома 🌐", False)
-        max_price = st.slider("Макс. стоимость (руб/год)", 100000, 400000, 350000, 10000)
-
-    user_score_it = math + rus + it + achievements
-    user_score_phys = math + rus + phys + achievements
-
-    st.info(f"💡 Ваша сумма (Мат + Рус + Инф + ИД): **{user_score_it}** | (Мат + Рус + Физ + ИД): **{user_score_phys}**")
+        max_price = st.slider("Макс. стоимость (руб/год)", 80000, 400000, 350000, 10000)
 
     filtered_df = df.copy()
+
+    # Фильтрация по чекбоксам
     if only_dorm:
         filtered_df = filtered_df[filtered_df['dormitory'] == True]
     if only_military:
         filtered_df = filtered_df[filtered_df['military'] == True]
     if only_double:
         filtered_df = filtered_df[filtered_df['double_degree'] == True]
-    filtered_df = filtered_df[filtered_df['price'] <= max_price]
+
+    # Фильтр по стоимости (пропускаем 0 — это если цена не указана)
+    filtered_df = filtered_df[(filtered_df['price'] <= max_price) | (filtered_df['price'] == 0)]
+
+    st.subheader(f"🔍 Найдено направлений в базе: {len(filtered_df)}")
 
     for idx, row in filtered_df.iterrows():
-        user_score = user_score_it if "Информатика" in row['subjects'] else user_score_phys
-        diff = user_score - row['pass_score']
+        req_subjects = row['subjects']
 
-        if diff >= 10:
-            chance_badge = ":green[Высокий шанс 🟢]"
-        elif diff >= -15:
-            chance_badge = ":orange[Средний шанс 🟡]"
+        # Считаем сумму баллов абитуриента по предметам, необходимым для этого направления
+        user_score = 0
+        has_all_subjects = True
+
+        for subj in req_subjects:
+            if subj in user_subjects:
+                user_score += user_subjects[subj]
+            else:
+                # Если абитуриент не сдавал этот предмет
+                has_all_subjects = False
+
+        user_score += achievements
+
+        # Рассчитываем шансы, если указан проходной балл
+        pass_score = row['pass_score']
+        if pass_score > 0:
+            diff = user_score - pass_score
+            if diff >= 10:
+                chance_badge = ":green[Высокий шанс 🟢]"
+            elif diff >= -15:
+                chance_badge = ":orange[Средний шанс 🟡]"
+            else:
+                chance_badge = ":red[Низкий шанс 🔴]"
+            score_text = f"{user_score} / {int(pass_score)}"
         else:
-            chance_badge = ":red[Низкий шанс 🔴]"
+            chance_badge = ":blue[Конкурс платных мест / Подача документов 🔵]"
+            score_text = f"{user_score} (Проходной не указан)"
 
-        with st.expander(f"{row['university']} — {row['program']} ({row['code']}) | Шанс: {chance_badge}"):
+        # Выводим карточку направления
+        with st.expander(f"{row['university']} ({row['faculty']}) — {row['program']} ({row['code']}) | {chance_badge}"):
             c1, c2, c3 = st.columns(3)
-            c1.metric("Ваш балл / Проходной 2025", f"{user_score} / {row['pass_score']}")
-            c2.metric("Бюджетных мест", f"{row['budget_places']}")
-            c3.metric("Стоимость", f"{row['price']:,} ₽/год".replace(',', ' '))
+            c1.metric("Ваш балл / Проходной", score_text)
+            c2.metric("Бюджетных мест", f"{int(row['budget_places'])}" if row['budget_places'] > 0 else "Нет бюджета")
+            c3.metric("Стоимость",
+                      f"{int(row['price']):,} ₽/год".replace(',', ' ') if row['price'] > 0 else "По запросу")
 
             st.write(f"**Город:** {row['city']}")
-            st.write(f"**Предметы:** {', '.join(row['subjects'])}")
+            st.write(f"**Необходимые предметы:** {', '.join(req_subjects)}")
 
             tags = []
             if row['dormitory']: tags.append("🏠 Общежитие")
             if row['military']: tags.append("🪖 Военный центр")
             if row['double_degree']: tags.append("🌐 Двойной диплом")
-            if row['target_places']: tags.append("🎯 Есть целевые места")
+            if row['target_places'] > 0: tags.append(f"🎯 Целевые места: {int(row['target_places'])}")
 
             st.success(" | ".join(tags))
 
