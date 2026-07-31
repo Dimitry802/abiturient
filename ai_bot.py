@@ -1,23 +1,24 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
 
 def render_ai_bot_page():
     st.title("💬 Помощник Абитуриента 2026 (AI)")
     st.caption("Умный консультант на базе нейросети Google Gemini")
 
-    # Безопасно считываем ключ из Streamlit Secrets
+    # Считываем API-ключ из Secrets
     api_key = st.secrets.get("GEMINI_API_KEY")
 
     if not api_key:
-        st.error("⚠️ API ключ не найден в Secrets! Проверьте настройки приложения.")
+        st.error("⚠️ API ключ не найден в Secrets! Проверьте настройки приложения на Streamlit Cloud.")
         return
 
-    # Настраиваем Gemini
-    genai.configure(api_key=api_key)
-
-    # Переключаемся на проверенную стабильную модель с бесплатными лимитами
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Инициализация нового клиента Google GenAI
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception as e:
+        st.error(f"⚠️ Ошибка инициализации клиента: {e}")
+        return
 
     # Инициализация истории чата
     if "messages" not in st.session_state:
@@ -31,14 +32,14 @@ def render_ai_bot_page():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Чат-ввод
+    # Поле ввода
     if user_input := st.chat_input("Спросите о поступлении..."):
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
 
         with st.chat_message("assistant"):
-            with st.spinner("Нейросеть печатает ответ..."):
+            with st.spinner("Нейросеть отвечает..."):
                 try:
                     system_prompt = (
                         "Ты — экспертный и дружелюбный консультант приёмной комиссии вузов России 2026 года. "
@@ -46,7 +47,11 @@ def render_ai_bot_page():
                         f"Вопрос абитуриента: {user_input}"
                     )
 
-                    response = model.generate_content(system_prompt)
+                    # Генерация ответа через актуальную модель
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=system_prompt
+                    )
                     bot_reply = response.text
                 except Exception as e:
                     bot_reply = f"⚠️ Произошла ошибка при обращении к AI: {e}"
