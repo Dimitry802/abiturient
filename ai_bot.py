@@ -16,8 +16,8 @@ def render_ai_bot_page():
     # Настраиваем Gemini
     genai.configure(api_key=api_key)
 
-    # Используем актуальное имя модели
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    # Переключаемся на проверенную стабильную модель с бесплатными лимитами
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
     # Инициализация истории чата
     if "messages" not in st.session_state:
