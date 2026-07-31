@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 
 
 def render_ai_bot_page():
@@ -10,11 +10,14 @@ def render_ai_bot_page():
     api_key = st.secrets.get("GEMINI_API_KEY")
 
     if not api_key:
-        st.error("⚠️ API ключ не найден в Secrets! Проверьте настройки приложения на Streamlit Cloud.")
+        st.error("⚠️ API ключ не найден в Secrets! Проверьте настройки приложения.")
         return
 
-    # Инициализация клиента Gemini
-    client = genai.Client(api_key=api_key)
+    # Настраиваем Gemini
+    genai.configure(api_key=api_key)
+
+    # Используем актуальное имя модели
+    model = genai.GenerativeModel('gemini-2.0-flash')
 
     # Инициализация истории чата
     if "messages" not in st.session_state:
@@ -30,12 +33,10 @@ def render_ai_bot_page():
 
     # Чат-ввод
     if user_input := st.chat_input("Спросите о поступлении..."):
-        # Показываем вопрос пользователя
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # Генерируем ответ через нейросеть
         with st.chat_message("assistant"):
             with st.spinner("Нейросеть печатает ответ..."):
                 try:
@@ -45,10 +46,7 @@ def render_ai_bot_page():
                         f"Вопрос абитуриента: {user_input}"
                     )
 
-                    response = client.models.generate_content(
-                        model='gemini-1.5-flash',
-                        contents=system_prompt,
-                    )
+                    response = model.generate_content(system_prompt)
                     bot_reply = response.text
                 except Exception as e:
                     bot_reply = f"⚠️ Произошла ошибка при обращении к AI: {e}"
