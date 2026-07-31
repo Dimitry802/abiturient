@@ -37,7 +37,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         selected_subjects = st.multiselect(
             "Выберите сданные предметы ЕГЭ:",
             options=all_subjects_list,
-            default=["Русский язык", "Математика", "Информатика"]
+            default=[]
         )
 
         user_subjects = {}
