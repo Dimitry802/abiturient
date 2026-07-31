@@ -87,7 +87,8 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     for idx, row in filtered_df.iterrows():
         req_subjects_raw = row['subjects']
 
-        if pd.isna(req_subjects_raw):
+        # Надежная проверка на пустые/незаполненные данные
+        if not req_subjects_raw or pd.isnull(req_subjects_raw) is True or str(req_subjects_raw) == 'nan':
             continue
 
         # Разбиваем строку предметов по запятым
