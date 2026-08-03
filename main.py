@@ -96,7 +96,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     for idx, row in filtered_df.iterrows():
         subj_val = row['subjects']
 
-        # Проверяем, заполнено ли поле предметов в Excel
+        # Безопасная проверка на пустую ячейку
         is_empty_subjects = (subj_val != subj_val) or (subj_val is None) or str(subj_val).strip() in ['', 'nan', 'None']
 
         if is_empty_subjects:
@@ -104,31 +104,40 @@ if page == "🎯 Калькулятор & Подбор Вуза":
             has_all_subjects = False
             user_score = achievements
         else:
-            req_subjects_raw = str(subj_val).strip()
-            req_groups = [s.strip() for s in req_subjects_raw.split(',')]
+            # Очищаем строку от возможных скобок/кавычек
+            raw_str = str(subj_val)
+            for char_to_remove in ["[", "]", "'", '"']:
+                raw_str = raw_str.replace(char_to_remove, "")
+
+            req_subjects_raw = raw_str.strip()
+
+            # Разбиваем по запятой
+            raw_groups = [s.strip() for s in req_subjects_raw.split(',') if s.strip()]
+
+            # Исключаем творческие и внутренние экзамены вузов из проверки ЕГЭ
+            ignored_exams = ["Творческое испытание", "Профессиональный экзамен", "Вступительное испытание"]
+            req_groups = [g for g in raw_groups if g not in ignored_exams]
 
             user_score = 0
-            has_all_subjects = True
+            has_all_subjects = True if len(req_groups) > 0 else False
 
             for group in req_groups:
+                # Если перечислено несколько вариантов ("Предмет A или Предмет B")
                 options = [opt.strip() for opt in group.split(' или ')]
                 matched_scores = [user_subjects[opt] for opt in options if opt in user_subjects]
 
                 if matched_scores:
                     user_score += max(matched_scores)
                 else:
-                    # Если хотя бы одной дисциплины из требований вуза нет у пользователя — совпадения нет
                     has_all_subjects = False
 
             user_score += achievements
 
-        # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
-        # Если галочка стоит: показываем ВСЕ направления, для которых у абитуриента хватает предметов (has_all_subjects == True)
+        # Фильтрация результатов по чекбоксу
         if only_suitable:
-            if has_all_subjects:
+            if not is_empty_subjects and has_all_subjects:
                 results.append((row, user_score, has_all_subjects, is_empty_subjects))
         else:
-            # Если галочка снята: показываем вообще все направления
             results.append((row, user_score, has_all_subjects, is_empty_subjects))
 
     # --- БЛОК СОРТИРОВКИ ---
