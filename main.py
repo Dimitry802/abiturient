@@ -117,15 +117,18 @@ if page == "🎯 Калькулятор & Подбор Вуза":
                 if matched_scores:
                     user_score += max(matched_scores)
                 else:
+                    # Если хотя бы одной дисциплины из требований вуза нет у пользователя — совпадения нет
                     has_all_subjects = False
 
             user_score += achievements
 
-        # Если стоит галочка "Только совпадение" — исключаем записи без предметов или с неполным совпадением
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
+        # Если галочка стоит: показываем ВСЕ направления, для которых у абитуриента хватает предметов (has_all_subjects == True)
         if only_suitable:
-            if not is_empty_subjects and has_all_subjects:
+            if has_all_subjects:
                 results.append((row, user_score, has_all_subjects, is_empty_subjects))
         else:
+            # Если галочка снята: показываем вообще все направления
             results.append((row, user_score, has_all_subjects, is_empty_subjects))
 
     # --- БЛОК СОРТИРОВКИ ---
