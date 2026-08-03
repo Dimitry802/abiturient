@@ -72,6 +72,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
         max_price = st.slider("Макс. стоимость (руб/год)", 50000, 1200000, 1200000, 50000)
 
+    # ------------------ ФИЛЬТРАЦИЯ ------------------
     filtered_df = df.copy()
 
     if selected_city_filter != "Все города":
@@ -93,30 +94,39 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
     results = []
     for idx, row in filtered_df.iterrows():
-        req_subjects_raw = row['subjects']
+        subj_val = row['subjects']
 
-        if not req_subjects_raw or pd.isnull(req_subjects_raw) is True or str(req_subjects_raw).strip() in ['', 'nan',
-                                                                                                            'None']:
-            continue
+        # Проверяем, заполнено ли поле предметов в Excel
+        is_empty_subjects = pd.isna(subj_val) or str(subj_val).strip() in ['', 'nan', 'None']
 
-        req_groups = [s.strip() for s in str(req_subjects_raw).split(',')]
+        if is_empty_subjects:
+            req_subjects_raw = ""
+            has_all_subjects = False
+            user_score = achievements
+        else:
+            req_subjects_raw = str(subj_val).strip()
+            req_groups = [s.strip() for s in req_subjects_raw.split(',')]
 
-        user_score = 0
-        has_all_subjects = True
+            user_score = 0
+            has_all_subjects = True
 
-        for group in req_groups:
-            options = [opt.strip() for opt in group.split(' или ')]
-            matched_scores = [user_subjects[opt] for opt in options if opt in user_subjects]
+            for group in req_groups:
+                options = [opt.strip() for opt in group.split(' или ')]
+                matched_scores = [user_subjects[opt] for opt in options if opt in user_subjects]
 
-            if matched_scores:
-                user_score += max(matched_scores)
-            else:
-                has_all_subjects = False
+                if matched_scores:
+                    user_score += max(matched_scores)
+                else:
+                    has_all_subjects = False
 
-        user_score += achievements
+            user_score += achievements
 
-        if has_all_subjects or not only_suitable:
-            results.append((row, user_score, has_all_subjects))
+        # Если стоит галочка "Только совпадение" — исключаем записи без предметов или с неполным совпадением
+        if only_suitable:
+            if not is_empty_subjects and has_all_subjects:
+                results.append((row, user_score, has_all_subjects, is_empty_subjects))
+        else:
+            results.append((row, user_score, has_all_subjects, is_empty_subjects))
 
     # --- БЛОК СОРТИРОВКИ ---
     col_title, col_sort = st.columns([2, 1])
@@ -137,7 +147,6 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         )
 
 
-    # Применяем выбранную сортировку
     def get_sort_key(item, key_type):
         row = item[0]
         val = row.get(key_type)
@@ -160,16 +169,15 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     if not results:
         st.warning("⚠️ По выбранным критериям не найдено направлений. Попробуйте изменить фильтры!")
 
-    for idx, (row, user_score, has_all_subjects) in enumerate(results):
+    # Отрисовка результатов
+    for idx, (row, user_score, has_all_subjects, is_empty_subjects) in enumerate(results):
         pass_score = float(row['pass_score']) if pd.notnull(row['pass_score']) else 0.0
         budget = int(row['budget_places']) if pd.notnull(row['budget_places']) else 0
         price = int(row['price']) if pd.notnull(row['price']) else 0
-        req_subjects_raw = str(row['subjects']).strip() if pd.notnull(row['subjects']) else ""
 
-        # Проверяем, указаны ли предметы в базе вообще
-        if not req_subjects_raw or req_subjects_raw in ['nan', 'None', '']:
+        if is_empty_subjects:
             chance_badge = ":gray[Предметы уточняются ℹ️]"
-            score_text = "Данные по предметам не указаны"
+            score_text = "Не заполнен набор предметов"
         elif not has_all_subjects:
             chance_badge = ":orange[Не выбраны все предметы ⚠️]"
             score_text = "Не совпадает набор ЕГЭ"
@@ -187,8 +195,6 @@ if page == "🎯 Калькулятор & Подбор Вуза":
             score_text = f"{user_score} (Проходной не указан)"
 
         faculty_str = f" ({row['faculty']})" if pd.notnull(row['faculty']) else ""
-
-        # Уникальный ID карточки с добавлением индекса idx
         card_id = f"{row['university']}_{row['code']}_{row['program']}_{idx}"
 
         with st.expander(f"{row['university']}{faculty_str} — {row['program']} ({row['code']}) | {chance_badge}"):
@@ -198,7 +204,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
             c3.metric("Стоимость", f"{price:,} ₽/год".replace(',', ' ') if price > 0 else "По запросу")
 
             st.write(f"📍 **Город:** {row['city']}")
-            st.write(f"📚 **Необходимые предметы:** {row['subjects']}")
+            st.write(f"📚 **Необходимые предметы:** {row['subjects'] if not is_empty_subjects else 'Уточняются'}")
 
             tags = []
             if row['dormitory'] == True: tags.append("🏠 Общежитие")
@@ -250,7 +256,6 @@ elif page.startswith("⚖️ Сравнение"):
 
         compare_df = pd.DataFrame(st.session_state.compare_list)
 
-        # Переименовываем столбцы для красоты
         compare_df = compare_df.rename(columns={
             "university": "Университет",
             "faculty": "Факультет",
@@ -264,7 +269,6 @@ elif page.startswith("⚖️ Сравнение"):
             "military": "Военная кафедра"
         }).drop(columns=["card_id"])
 
-        # Выводим удобную сравнитепьную таблицу
         st.dataframe(compare_df.T, use_container_width=True)
 
 # 3. РАЗДЕЛ: БАЗА ЗНАНИЙ
