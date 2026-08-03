@@ -160,7 +160,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     if not results:
         st.warning("⚠️ По выбранным критериям не найдено направлений. Попробуйте изменить фильтры!")
 
-    for row, user_score, has_all_subjects in results:
+    for idx, (row, user_score, has_all_subjects) in enumerate(results):
         pass_score = float(row['pass_score']) if pd.notnull(row['pass_score']) else 0.0
         budget = int(row['budget_places']) if pd.notnull(row['budget_places']) else 0
         price = int(row['price']) if pd.notnull(row['price']) else 0
@@ -182,7 +182,9 @@ if page == "🎯 Калькулятор & Подбор Вуза":
             score_text = f"{user_score} (Проходной не указан)"
 
         faculty_str = f" ({row['faculty']})" if pd.notnull(row['faculty']) else ""
-        card_id = f"{row['university']}_{row['code']}_{row['program']}"
+
+        # Уникальный ID карточки с добавлением индекса idx
+        card_id = f"{row['university']}_{row['code']}_{row['program']}_{idx}"
 
         with st.expander(f"{row['university']}{faculty_str} — {row['program']} ({row['code']}) | {chance_badge}"):
             c1, c2, c3 = st.columns(3)
