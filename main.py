@@ -164,9 +164,14 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         pass_score = float(row['pass_score']) if pd.notnull(row['pass_score']) else 0.0
         budget = int(row['budget_places']) if pd.notnull(row['budget_places']) else 0
         price = int(row['price']) if pd.notnull(row['price']) else 0
+        req_subjects_raw = str(row['subjects']).strip() if pd.notnull(row['subjects']) else ""
 
-        if not has_all_subjects:
-            chance_badge = ":gray[Не выбраны все предметы ⚠️]"
+        # Проверяем, указаны ли предметы в базе вообще
+        if not req_subjects_raw or req_subjects_raw in ['nan', 'None', '']:
+            chance_badge = ":gray[Предметы уточняются ℹ️]"
+            score_text = "Данные по предметам не указаны"
+        elif not has_all_subjects:
+            chance_badge = ":orange[Не выбраны все предметы ⚠️]"
             score_text = "Не совпадает набор ЕГЭ"
         elif pass_score > 0:
             diff = user_score - pass_score
