@@ -27,7 +27,6 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         st.divider()
         st.header("📊 Ваши предметы и баллы ЕГЭ")
 
-        # Список всех возможных предметов
         all_subjects_list = [
             "Русский язык", "Математика", "Информатика", "Физика",
             "Обществознание", "Химия", "Биология", "История",
@@ -51,25 +50,36 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         st.divider()
         st.header("⚙️ Фильтры")
 
-        # Фильтр по вузам
-        all_unis = sorted(df['university'].dropna().unique().tolist())
-        selected_uni_filter = st.selectbox("Выбрать конкретный вуз:", ["Все вузы"] + all_unis)
+        # 🏙️ ФИЛЬТР ПО ГОРОДУ (Динамически берутся все города из Excel)
+        all_cities = sorted(df['city'].dropna().unique().tolist())
+        selected_city_filter = st.selectbox("🏙️ Город:", ["Все города"] + all_cities)
+
+        # 🏫 ФИЛЬТР ПО ВУЗАМ (Зависит от выбранного города)
+        if selected_city_filter != "Все города":
+            available_unis = sorted(df[df['city'] == selected_city_filter]['university'].dropna().unique().tolist())
+        else:
+            available_unis = sorted(df['university'].dropna().unique().tolist())
+
+        selected_uni_filter = st.selectbox("🏫 Выбрать конкретный вуз:", ["Все вузы"] + available_unis)
 
         only_suitable = st.checkbox("Показывать ТОЛЬКО с полным совпадением предметов", value=True)
-        only_dorm = st.checkbox("Только с общежитием", False)
-        only_military = st.checkbox("Наличие Военного центра (ВУЦ)", False)
+        only_dorm = st.checkbox("Только с общежитием 🏠", False)
+        only_military = st.checkbox("Наличие Военного центра (ВУЦ) 🪖", False)
         only_double = st.checkbox("Программы двойного диплома 🌐", False)
 
-        # Увеличили макс. порог стоимости, чтобы топовые вузы (НИУ ВШЭ, МГУ) не скрывались
         max_price = st.slider("Макс. стоимость (руб/год)", 50000, 1200000, 1200000, 50000)
 
     filtered_df = df.copy()
 
-    # Фильтр по выбору конкретного вуза
+    # Применяем фильтр по городу
+    if selected_city_filter != "Все города":
+        filtered_df = filtered_df[filtered_df['city'] == selected_city_filter]
+
+    # Применяем фильтр по вузу
     if selected_uni_filter != "Все вузы":
         filtered_df = filtered_df[filtered_df['university'] == selected_uni_filter]
 
-    # Фильтрация по чекбоксам
+    # Применяем фильтры по чекбоксам
     if only_dorm:
         filtered_df = filtered_df[filtered_df['dormitory'] == True]
     if only_military:
@@ -77,7 +87,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     if only_double:
         filtered_df = filtered_df[filtered_df['double_degree'] == True]
 
-    # Корректная фильтрация стоимости (включая программы, где цена 0 или не указана)
+    # Фильтрация по стоимости
     filtered_df = filtered_df[
         (filtered_df['price'] <= max_price) | (filtered_df['price'] == 0) | (filtered_df['price'].isna())
         ]
@@ -87,21 +97,17 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     for idx, row in filtered_df.iterrows():
         req_subjects_raw = row['subjects']
 
-        # Надежная проверка на пустые/незаполненные данные
-        if not req_subjects_raw or pd.isnull(req_subjects_raw) is True or str(req_subjects_raw) == 'nan':
+        if not req_subjects_raw or pd.isnull(req_subjects_raw) is True or str(req_subjects_raw).strip() in ['', 'nan',
+                                                                                                            'None']:
             continue
 
-        # Разбиваем строку предметов по запятым
         req_groups = [s.strip() for s in str(req_subjects_raw).split(',')]
 
         user_score = 0
         has_all_subjects = True
 
         for group in req_groups:
-            # Если написано "Физика или Информатика" — проверяем альтернативы
             options = [opt.strip() for opt in group.split(' или ')]
-
-            # Находим максимальный балл среди выбранных пользователем альтернатив
             matched_scores = [user_subjects[opt] for opt in options if opt in user_subjects]
 
             if matched_scores:
@@ -117,8 +123,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
     st.subheader(f"🔍 Найдено подпадающих направлений: {len(results)}")
 
     if not results:
-        st.warning(
-            "⚠️ По выбранным предметам и фильтрам не найдено направлений. Попробуйте увеличить максимальную стоимость или выбрать больше предметов!")
+        st.warning("⚠️ По выбранным критериям не найдено направлений. Попробуйте сбросить фильтры или изменить город!")
 
     for row, user_score, has_all_subjects in results:
         pass_score = float(row['pass_score']) if pd.notnull(row['pass_score']) else 0.0
@@ -143,15 +148,14 @@ if page == "🎯 Калькулятор & Подбор Вуза":
 
         faculty_str = f" ({row['faculty']})" if pd.notnull(row['faculty']) else ""
 
-        # Выводим карточку направления
         with st.expander(f"{row['university']}{faculty_str} — {row['program']} ({row['code']}) | {chance_badge}"):
             c1, c2, c3 = st.columns(3)
             c1.metric("Ваш балл / Проходной", score_text)
             c2.metric("Бюджетных мест", f"{budget}" if budget > 0 else "Нет бюджета")
             c3.metric("Стоимость", f"{price:,} ₽/год".replace(',', ' ') if price > 0 else "По запросу")
 
-            st.write(f"**Город:** {row['city']}")
-            st.write(f"**Необходимые предметы:** {row['subjects']}")
+            st.write(f"📍 **Город:** {row['city']}")
+            st.write(f"📚 **Необходимые предметы:** {row['subjects']}")
 
             tags = []
             if row['dormitory'] == True: tags.append("🏠 Общежитие")
