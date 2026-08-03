@@ -97,7 +97,7 @@ if page == "🎯 Калькулятор & Подбор Вуза":
         subj_val = row['subjects']
 
         # Проверяем, заполнено ли поле предметов в Excel
-        is_empty_subjects = pd.isna(subj_val) or str(subj_val).strip() in ['', 'nan', 'None']
+        is_empty_subjects = (subj_val != subj_val) or (subj_val is None) or str(subj_val).strip() in ['', 'nan', 'None']
 
         if is_empty_subjects:
             req_subjects_raw = ""
